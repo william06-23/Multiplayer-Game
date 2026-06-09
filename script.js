@@ -4,6 +4,15 @@ const ctx = canvas.getContext("2d");
 const paddleWidth = 80;
 const paddleHeight = 10;
 
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+const supabase = createClient(
+  'https://bkigcatgfnqrkvszjnub.supabase.co',
+  'sb_publishable_pNXP5rtZyUvuLewbKA0MBA_l9rPGO_i'
+);
+
+const GAME_ID = 'id'; 
+
 // Player 1 (BOTTOM - local)
 let p1 = {
   x: canvas.width / 2 - paddleWidth / 2,
@@ -50,6 +59,38 @@ function updateFromServer() {
   if (p2.x + paddleWidth > canvas.width)
     p2.x = canvas.width - paddleWidth;
 }
+
+async function sendPlayerData() {
+  await supabase
+    .from('MyNewGame')
+    .update({
+      p1_x: p1.x,
+      updated_at: new Date()
+    })
+    .eq('id', GAME_ID);
+}
+supabase
+  .channel('game-channel')
+  .on(
+    'postgres_changes',
+    {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'MyNewGame',
+      filter: `id=eq.${GAME_ID}`
+    },
+    payload => {
+      const data = payload.new;
+
+      // update Player 2
+      p2.x = data.p2_x;
+
+      // (optional) sync ball
+      ball.x = data.ball_x;
+      ball.y = data.ball_y;
+    }
+)
+.subscribe();
 
 // Draw functions
 function drawRect(x, y, w, h) {
@@ -145,6 +186,7 @@ function gameLoop() {
   update();
   draw();
   requestAnimationFrame(gameLoop);
+  setInterval(sendPlayerData, 50); // 20 times/sec
 }
 
 gameLoop();
