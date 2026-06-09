@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pong</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <main class="screen">
+    <div class="panel">
+      <h1 class="title">Pong</h1>
+      <p class="subtitle">Choose how you want to play</p>
+
+      <div class="actions">
+        <button type="button" class="btn" id="newGameBtn">New Game</button>
+        <button type="button" class="btn" id="joinGameBtn">Join a Game</button>
+      </div>
+
+      <form class="join-form hidden" id="joinForm">
+        <label class="join-label" for="gameCode">Game code</label>
+        <input
+          type="text"
+          id="gameCode"
+          class="join-input"
+          placeholder="Enter code"
+          autocomplete="off"
+          maxlength="32"
+        >
+        <div class="join-actions">
+          <button type="submit" class="btn btn-small">Connect</button>
+          <button type="button" class="btn btn-small btn-ghost" id="cancelJoinBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script src="index.js"></script>
+</body>
+</html>
