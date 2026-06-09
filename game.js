@@ -4,14 +4,14 @@ const ctx = canvas.getContext("2d");
 const paddleWidth = 80;
 const paddleHeight = 10;
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+import { supabase } from "./supabase.js";
 
-const supabase = createClient(
-  'https://bkigcatgfnqrkvszjnub.supabase.co',
-  'sb_publishable_pNXP5rtZyUvuLewbKA0MBA_l9rPGO_i'
-);
+const GAME_ID = new URLSearchParams(window.location.search).get("id");
+const roomIdValue = document.getElementById("roomIdValue");
 
-const GAME_ID = 'id'; 
+if (roomIdValue) {
+  roomIdValue.textContent = GAME_ID ?? "—";
+}
 
 // Player 1 (BOTTOM - local)
 let p1 = {
@@ -61,36 +61,38 @@ function updateFromServer() {
 }
 
 async function sendPlayerData() {
+  if (!GAME_ID) return;
+
   await supabase
-    .from('MyNewGame')
+    .from("MyNewGame")
     .update({
       p1_x: p1.x,
-      updated_at: new Date()
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', GAME_ID);
+    .eq("id", GAME_ID);
 }
-supabase
-  .channel('game-channel')
-  .on(
-    'postgres_changes',
-    {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'MyNewGame',
-      filter: `id=eq.${GAME_ID}`
-    },
-    payload => {
-      const data = payload.new;
 
-      // update Player 2
-      p2.x = data.p2_x;
+if (GAME_ID) {
+  supabase
+    .channel("game-channel")
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "MyNewGame",
+        filter: `id=eq.${GAME_ID}`,
+      },
+      (payload) => {
+        const data = payload.new;
 
-      // (optional) sync ball
-      ball.x = data.ball_x;
-      ball.y = data.ball_y;
-    }
-)
-.subscribe();
+        p2.x = data.p2_x;
+        ball.x = data.ball_x;
+        ball.y = data.ball_y;
+      }
+    )
+    .subscribe();
+}
 
 // Draw functions
 function drawRect(x, y, w, h) {

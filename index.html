@@ -17,6 +17,8 @@
         <button type="button" class="btn" id="joinGameBtn">Join a Game</button>
       </div>
 
+      <p class="error hidden" id="newGameError"></p>
+
       <form class="join-form hidden" id="joinForm">
         <label class="join-label" for="gameCode">Game code</label>
         <input
@@ -27,6 +29,7 @@
           autocomplete="off"
           maxlength="32"
         >
+        <p class="error hidden" id="joinError"></p>
         <div class="join-actions">
           <button type="submit" class="btn btn-small">Connect</button>
           <button type="button" class="btn btn-small btn-ghost" id="cancelJoinBtn">Cancel</button>
@@ -35,6 +38,6 @@
     </div>
   </main>
 
-  <script src="index.js"></script>
+  <script type="module" src="index.js"></script>
 </body>
 </html>
