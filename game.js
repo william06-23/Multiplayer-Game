@@ -341,7 +341,7 @@ function updatePlayerOneBall() {
   ball.x += ball.dx;
   ball.y += ball.dy;
 
-  if (ball.x < ball.radius || ball.x > canvas.width - ball.radius) {
+  if (ball.x <= ball.radius || ball.x >= canvas.width - ball.radius) {
     ball.dx *= -1;
     ball.x = Math.max(
       ball.radius,
@@ -350,29 +350,29 @@ function updatePlayerOneBall() {
   }
 
   if (
-    ball.y + ball.radius > bottomPaddle.y &&
-    ball.x > bottomPaddle.x &&
-    ball.x < bottomPaddle.x + paddleWidth
+    ball.y + ball.radius >= bottomPaddle.y &&
+    ball.x >= bottomPaddle.x &&
+    ball.x <= bottomPaddle.x + paddleWidth
   ) {
     ball.dy *= -1;
     ball.y = bottomPaddle.y - ball.radius;
   }
 
   if (
-    ball.y - ball.radius < topPaddle.y + paddleHeight &&
-    ball.x > topPaddle.x &&
-    ball.x < topPaddle.x + paddleWidth
+    ball.y - ball.radius <= topPaddle.y + paddleHeight &&
+    ball.x >= topPaddle.x &&
+    ball.x <= topPaddle.x + paddleWidth
   ) {
     ball.dy *= -1;
     ball.y = topPaddle.y + paddleHeight + ball.radius;
   }
 
-  if (ball.y < 0) {
+  if (ball.y <= 0) {
     handleScore(1);
     return;
   }
 
-  if (ball.y > canvas.height) {
+  if (ball.y >= canvas.height) {
     handleScore(2);
   }
 }
@@ -380,11 +380,34 @@ function updatePlayerOneBall() {
 function updatePlayerTwoBall() {
   ball.x -= ball.dx;
   ball.y -= ball.dy;
+
+  if (ball.x <= ball.radius || ball.x >= canvas.width - ball.radius) {
+    ball.x = Math.max(
+      ball.radius,
+      Math.min(canvas.width - ball.radius, ball.x)
+    );
+  }
+
+  if (
+    ball.y + ball.radius >= bottomPaddle.y &&
+    ball.x >= bottomPaddle.x &&
+    ball.x <= bottomPaddle.x + paddleWidth
+  ) {
+    ball.y = bottomPaddle.y - ball.radius;
+  }
+
+  if (
+    ball.y - ball.radius <= topPaddle.y + paddleHeight &&
+    ball.x >= topPaddle.x &&
+    ball.x <= topPaddle.x + paddleWidth
+  ) {
+    ball.y = topPaddle.y + paddleHeight + ball.radius;
+  }
 }
 
 function clampPaddle(paddle) {
-  if (paddle.x < 0) paddle.x = 0;
-  if (paddle.x + paddleWidth > canvas.width) {
+  if (paddle.x <= 0) paddle.x = 0;
+  if (paddle.x + paddleWidth >= canvas.width) {
     paddle.x = canvas.width - paddleWidth;
   }
 }
