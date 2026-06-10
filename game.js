@@ -17,16 +17,15 @@ import {
   INITIAL_BALL_DY,
   INITIAL_P1_X,
   INITIAL_P2_X,
-  CANVAS_WIDTH,
-  CANVAS_HEIGHT,
 } from "./supabase.js";
 
 const params = new URLSearchParams(window.location.search);
 const player = params.get("player");
 let gameId = params.get("id");
 const roomIdValue = document.getElementById("roomIdValue");
+const p1ScoreEl = document.getElementById("p1ScoreValue");
+const p2ScoreEl = document.getElementById("p2ScoreValue");
 
-// true if this client created the game (player 1), false if they joined (player 2)
 const createdGame = player === "1";
 
 let waitingForPlayer = createdGame;
@@ -34,11 +33,18 @@ let isPaused = false;
 let celebration = null;
 let lastKnownP1Score = 0;
 let lastKnownP2Score = 0;
+let remoteP1Dx = 0;
+let remoteP2Dx = 0;
 
 function updateRoomIdDisplay() {
   if (roomIdValue) {
     roomIdValue.textContent = gameId ?? "—";
   }
+}
+
+function updateScoreDisplay() {
+  if (p1ScoreEl) p1ScoreEl.textContent = p1Score;
+  if (p2ScoreEl) p2ScoreEl.textContent = p2Score;
 }
 
 updateRoomIdDisplay();
@@ -65,17 +71,6 @@ let ball = {
 let p1Score = 0;
 let p2Score = 0;
 
-function getDisplayBallPosition() {
-  if (createdGame) {
-    return { x: ball.x, y: ball.y };
-  }
-
-  return {
-    x: CANVAS_WIDTH - ball.x,
-    y: CANVAS_HEIGHT - ball.y,
-  };
-}
-
 function startCelebration(youScored) {
   celebration = {
     text: youScored ? "GOAL!" : "They scored!",
@@ -93,33 +88,26 @@ function handleRemoteScoreChange(prevP1, prevP2) {
 
   isPaused = true;
   startCelebration(p2Scored);
-
-  if (ball.dx === 0 && ball.dy === 0) {
-    return;
-  }
-
-  ball.dx = 0;
-  ball.dy = 0;
+  resetBallToCenter();
 }
 
 function handleRemoteResume() {
   if (createdGame || waitingForPlayer || !isPaused) return;
 
   if (ball.dx !== 0 || ball.dy !== 0) {
+    ball.x = INITIAL_BALL_X;
+    ball.y = INITIAL_BALL_Y;
     isPaused = false;
     celebration = null;
   }
 }
 
 function applyRemoteState(data) {
-  const prevP1 = p1Score;
-  const prevP2 = p2Score;
-
   if (createdGame) {
-    if (data.p2_x != null) {
-      topPaddle.x = data.p2_x;
+    if (data.p2_dx != null) {
+      remoteP2Dx = data.p2_dx;
     }
-    waitingForPlayer = data.p2_x == null;
+    waitingForPlayer = data.p2_dx == null;
 
     if (waitingForPlayer) {
       ball.x = INITIAL_BALL_X;
@@ -135,19 +123,24 @@ function applyRemoteState(data) {
       ball.dx = data.ball_dx;
       ball.dy = data.ball_dy;
     }
-  } else {
-    if (data.p1_x != null) {
-      topPaddle.x = data.p1_x;
-    }
-    if (data.ball_x != null) ball.x = data.ball_x;
-    if (data.ball_y != null) ball.y = data.ball_y;
-    if (data.ball_dx != null) ball.dx = data.ball_dx;
-    if (data.ball_dy != null) ball.dy = data.ball_dy;
+
+    return;
   }
+
+  if (data.p1_dx != null) {
+    remoteP1Dx = data.p1_dx;
+  }
+
+  if (data.ball_dx != null) ball.dx = data.ball_dx;
+  if (data.ball_dy != null) ball.dy = data.ball_dy;
+
+  const prevP1 = p1Score;
+  const prevP2 = p2Score;
 
   if (data.p1_score != null) p1Score = data.p1_score;
   if (data.p2_score != null) p2Score = data.p2_score;
 
+  updateScoreDisplay();
   handleRemoteScoreChange(prevP1, prevP2);
   handleRemoteResume();
 
@@ -157,17 +150,17 @@ function applyRemoteState(data) {
 
 function applyInitialState(data) {
   if (createdGame) {
-    if (data.p1_x != null) bottomPaddle.x = data.p1_x;
-    if (data.p2_x != null) topPaddle.x = data.p2_x;
-    waitingForPlayer = data.p2_x == null;
+    waitingForPlayer = data.p2_dx == null;
+    if (data.p2_dx != null) {
+      remoteP2Dx = data.p2_dx;
+    }
   } else {
-    if (data.p2_x != null) bottomPaddle.x = data.p2_x;
-    if (data.p1_x != null) topPaddle.x = data.p1_x;
+    if (data.p1_dx != null) {
+      remoteP1Dx = data.p1_dx;
+    }
     waitingForPlayer = false;
   }
 
-  if (data.ball_x != null) ball.x = data.ball_x;
-  if (data.ball_y != null) ball.y = data.ball_y;
   if (data.ball_dx != null) ball.dx = data.ball_dx;
   if (data.ball_dy != null) ball.dy = data.ball_dy;
   if (data.p1_score != null) p1Score = data.p1_score;
@@ -182,6 +175,7 @@ function applyInitialState(data) {
 
   lastKnownP1Score = p1Score;
   lastKnownP2Score = p2Score;
+  updateScoreDisplay();
 }
 
 document.addEventListener("keydown", (e) => {
@@ -198,13 +192,11 @@ async function syncToDatabase() {
 
   if (createdGame) {
     const update = {
-      p1_x: bottomPaddle.x,
+      p1_dx: bottomPaddle.dx,
       updated_at: new Date().toISOString(),
     };
 
     if (!waitingForPlayer) {
-      update.ball_x = ball.x;
-      update.ball_y = ball.y;
       update.ball_dx = ball.dx;
       update.ball_dy = ball.dy;
       update.p1_score = p1Score;
@@ -219,7 +211,7 @@ async function syncToDatabase() {
     await supabase
       .from("MyNewGame")
       .update({
-        p2_x: bottomPaddle.x,
+        p2_dx: bottomPaddle.dx,
         updated_at: new Date().toISOString(),
       })
       .eq("id", gameId);
@@ -277,16 +269,9 @@ function drawRect(x, y, w, h) {
 }
 
 function drawBall() {
-  const { x, y } = getDisplayBallPosition();
-
   ctx.beginPath();
-  ctx.arc(x, y, ball.radius, 0, Math.PI * 2);
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fill();
-}
-
-function drawText(text, x, y) {
-  ctx.font = "30px Arial";
-  ctx.fillText(text, x, y);
 }
 
 function drawWaitingText() {
@@ -336,6 +321,7 @@ async function handleScore(scorer) {
     p2Score++;
   }
 
+  updateScoreDisplay();
   startCelebration(scorer === 1);
   resetBallToCenter();
   await syncToDatabase();
@@ -391,14 +377,29 @@ function updatePlayerOneBall() {
   }
 }
 
+function updatePlayerTwoBall() {
+  ball.x -= ball.dx;
+  ball.y -= ball.dy;
+}
+
+function clampPaddle(paddle) {
+  if (paddle.x < 0) paddle.x = 0;
+  if (paddle.x + paddleWidth > canvas.width) {
+    paddle.x = canvas.width - paddleWidth;
+  }
+}
+
 function update() {
   if (!isPaused) {
     bottomPaddle.x += bottomPaddle.dx;
+    clampPaddle(bottomPaddle);
 
-    if (bottomPaddle.x < 0) bottomPaddle.x = 0;
-    if (bottomPaddle.x + paddleWidth > canvas.width) {
-      bottomPaddle.x = canvas.width - paddleWidth;
+    if (createdGame) {
+      topPaddle.x -= remoteP2Dx;
+    } else {
+      topPaddle.x -= remoteP1Dx;
     }
+    clampPaddle(topPaddle);
   }
 
   if (waitingForPlayer) {
@@ -415,6 +416,8 @@ function update() {
 
   if (createdGame) {
     updatePlayerOneBall();
+  } else {
+    updatePlayerTwoBall();
   }
 }
 
@@ -430,9 +433,6 @@ function draw() {
   }
 
   drawCelebration();
-
-  drawText(p1Score, 50, canvas.height / 2);
-  drawText(p2Score, canvas.width - 80, canvas.height / 2);
 }
 
 function gameLoop() {

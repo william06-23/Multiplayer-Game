@@ -18,9 +18,7 @@ export const INITIAL_BALL_DY = 4;
 
 export function getNewGameRow() {
   return {
-    p1_x: INITIAL_P1_X,
-    ball_x: INITIAL_BALL_X,
-    ball_y: INITIAL_BALL_Y,
+    p1_dx: 0,
     ball_dx: 0,
     ball_dy: 0,
     p1_score: 0,
@@ -30,7 +28,7 @@ export function getNewGameRow() {
 
 export function getPlayerTwoRow() {
   return {
-    p2_x: INITIAL_P2_X,
+    p2_dx: 0,
     p2_score: 0,
     ball_dx: INITIAL_BALL_DX,
     ball_dy: INITIAL_BALL_DY,
@@ -41,7 +39,7 @@ export function getPlayerTwoRow() {
 export async function fetchGameState(gameId) {
   const { data, error } = await supabase
     .from("MyNewGame")
-    .select("p1_x, p2_x, ball_x, ball_y, ball_dx, ball_dy, p1_score, p2_score")
+    .select("p1_dx, p2_dx, ball_dx, ball_dy, p1_score, p2_score")
     .eq("id", gameId)
     .single();
 
@@ -74,7 +72,7 @@ export async function createNewGame() {
 export async function joinGame(gameId) {
   const { data: game, error: fetchError } = await supabase
     .from("MyNewGame")
-    .select("id, p2_x, p2_score")
+    .select("id, p2_dx, p2_score")
     .eq("id", gameId)
     .maybeSingle();
 
@@ -86,7 +84,7 @@ export async function joinGame(gameId) {
     throw new Error("Game not found.");
   }
 
-  if (game.p2_x != null || game.p2_score != null) {
+  if (game.p2_dx != null || game.p2_score != null) {
     throw new Error("This game is already full.");
   }
 
@@ -94,7 +92,7 @@ export async function joinGame(gameId) {
     .from("MyNewGame")
     .update(getPlayerTwoRow())
     .eq("id", gameId)
-    .is("p2_x", null)
+    .is("p2_dx", null)
     .is("p2_score", null)
     .select("id")
     .maybeSingle();

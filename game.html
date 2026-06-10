@@ -10,7 +10,20 @@
 <div class="room-id">Room ID: <span id="roomIdValue"></span></div>
 
 <h1>Vertical Pong</h1>
-<canvas id="gameCanvas" width="400" height="800"></canvas>
+
+<div class="game-layout">
+  <div class="score-panel">
+    <h2 class="score-label">Player 1</h2>
+    <div class="score-value" id="p1ScoreValue">0</div>
+  </div>
+
+  <canvas id="gameCanvas" width="400" height="800"></canvas>
+
+  <div class="score-panel">
+    <h2 class="score-label">Player 2</h2>
+    <div class="score-value" id="p2ScoreValue">0</div>
+  </div>
+</div>
 
 <p>
   Player 1: A / D <br>
