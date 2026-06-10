@@ -3,6 +3,9 @@ const ctx = canvas.getContext("2d");
 
 const paddleWidth = 80;
 const paddleHeight = 10;
+const SYNC_INTERVAL_MS = 1000 / 24;
+const CELEBRATION_MS = 1500;
+const SCORE_PAUSE_MS = 2000;
 
 import {
   supabase,
@@ -10,8 +13,12 @@ import {
   fetchGameState,
   INITIAL_BALL_X,
   INITIAL_BALL_Y,
+  INITIAL_BALL_DX,
+  INITIAL_BALL_DY,
   INITIAL_P1_X,
   INITIAL_P2_X,
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
 } from "./supabase.js";
 
 const params = new URLSearchParams(window.location.search);
@@ -23,6 +30,10 @@ const roomIdValue = document.getElementById("roomIdValue");
 const createdGame = player === "1";
 
 let waitingForPlayer = createdGame;
+let isPaused = false;
+let celebration = null;
+let lastKnownP1Score = 0;
+let lastKnownP2Score = 0;
 
 function updateRoomIdDisplay() {
   if (roomIdValue) {
@@ -54,7 +65,56 @@ let ball = {
 let p1Score = 0;
 let p2Score = 0;
 
+function getDisplayBallPosition() {
+  if (createdGame) {
+    return { x: ball.x, y: ball.y };
+  }
+
+  return {
+    x: CANVAS_WIDTH - ball.x,
+    y: CANVAS_HEIGHT - ball.y,
+  };
+}
+
+function startCelebration(youScored) {
+  celebration = {
+    text: youScored ? "GOAL!" : "They scored!",
+    until: Date.now() + CELEBRATION_MS,
+  };
+}
+
+function handleRemoteScoreChange(prevP1, prevP2) {
+  if (createdGame || waitingForPlayer) return;
+
+  const p1Scored = p1Score > prevP1;
+  const p2Scored = p2Score > prevP2;
+
+  if (!p1Scored && !p2Scored) return;
+
+  isPaused = true;
+  startCelebration(p2Scored);
+
+  if (ball.dx === 0 && ball.dy === 0) {
+    return;
+  }
+
+  ball.dx = 0;
+  ball.dy = 0;
+}
+
+function handleRemoteResume() {
+  if (createdGame || waitingForPlayer || !isPaused) return;
+
+  if (ball.dx !== 0 || ball.dy !== 0) {
+    isPaused = false;
+    celebration = null;
+  }
+}
+
 function applyRemoteState(data) {
+  const prevP1 = p1Score;
+  const prevP2 = p2Score;
+
   if (createdGame) {
     if (data.p2_x != null) {
       topPaddle.x = data.p2_x;
@@ -66,7 +126,12 @@ function applyRemoteState(data) {
       ball.y = INITIAL_BALL_Y;
       ball.dx = 0;
       ball.dy = 0;
-    } else if (data.ball_dx != null && ball.dx === 0 && ball.dy === 0) {
+    } else if (
+      !isPaused &&
+      data.ball_dx != null &&
+      ball.dx === 0 &&
+      ball.dy === 0
+    ) {
       ball.dx = data.ball_dx;
       ball.dy = data.ball_dy;
     }
@@ -82,6 +147,12 @@ function applyRemoteState(data) {
 
   if (data.p1_score != null) p1Score = data.p1_score;
   if (data.p2_score != null) p2Score = data.p2_score;
+
+  handleRemoteScoreChange(prevP1, prevP2);
+  handleRemoteResume();
+
+  lastKnownP1Score = p1Score;
+  lastKnownP2Score = p2Score;
 }
 
 function applyInitialState(data) {
@@ -108,6 +179,9 @@ function applyInitialState(data) {
     ball.dx = 0;
     ball.dy = 0;
   }
+
+  lastKnownP1Score = p1Score;
+  lastKnownP2Score = p2Score;
 }
 
 document.addEventListener("keydown", (e) => {
@@ -203,8 +277,10 @@ function drawRect(x, y, w, h) {
 }
 
 function drawBall() {
+  const { x, y } = getDisplayBallPosition();
+
   ctx.beginPath();
-  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.arc(x, y, ball.radius, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -221,13 +297,70 @@ function drawWaitingText() {
   ctx.textAlign = "left";
 }
 
+function drawCelebration() {
+  if (!celebration || Date.now() > celebration.until) return;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.fillRect(0, canvas.height / 2 - 50, canvas.width, 100);
+
+  ctx.font = "bold 32px Arial";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "white";
+  ctx.fillText(celebration.text, canvas.width / 2, canvas.height / 2 + 10);
+  ctx.restore();
+}
+
+function resetBallToCenter() {
+  ball.x = INITIAL_BALL_X;
+  ball.y = INITIAL_BALL_Y;
+  ball.dx = 0;
+  ball.dy = 0;
+}
+
+function resetBallForPlay() {
+  ball.x = INITIAL_BALL_X;
+  ball.y = INITIAL_BALL_Y;
+  ball.dx = INITIAL_BALL_DX;
+  ball.dy = INITIAL_BALL_DY * (Math.random() > 0.5 ? 1 : -1);
+}
+
+async function handleScore(scorer) {
+  if (!createdGame || isPaused || waitingForPlayer) return;
+
+  isPaused = true;
+
+  if (scorer === 1) {
+    p1Score++;
+  } else {
+    p2Score++;
+  }
+
+  startCelebration(scorer === 1);
+  resetBallToCenter();
+  await syncToDatabase();
+
+  lastKnownP1Score = p1Score;
+  lastKnownP2Score = p2Score;
+
+  setTimeout(async () => {
+    resetBallForPlay();
+    celebration = null;
+    isPaused = false;
+    await syncToDatabase();
+  }, SCORE_PAUSE_MS);
+}
+
 function updatePlayerOneBall() {
   ball.x += ball.dx;
   ball.y += ball.dy;
 
   if (ball.x < ball.radius || ball.x > canvas.width - ball.radius) {
     ball.dx *= -1;
-    ball.x = Math.max(ball.radius, Math.min(canvas.width - ball.radius, ball.x));
+    ball.x = Math.max(
+      ball.radius,
+      Math.min(canvas.width - ball.radius, ball.x)
+    );
   }
 
   if (
@@ -249,33 +382,23 @@ function updatePlayerOneBall() {
   }
 
   if (ball.y < 0) {
-    p1Score++;
-    resetBall();
+    handleScore(1);
+    return;
   }
 
   if (ball.y > canvas.height) {
-    p2Score++;
-    resetBall();
+    handleScore(2);
   }
 }
 
-function updatePlayerTwoBall() {
-  ball.x -= ball.dx;
-  ball.y -= ball.dy;
-}
-
-function resetBall() {
-  ball.x = INITIAL_BALL_X;
-  ball.y = INITIAL_BALL_Y;
-  ball.dy *= -1;
-}
-
 function update() {
-  bottomPaddle.x += bottomPaddle.dx;
+  if (!isPaused) {
+    bottomPaddle.x += bottomPaddle.dx;
 
-  if (bottomPaddle.x < 0) bottomPaddle.x = 0;
-  if (bottomPaddle.x + paddleWidth > canvas.width) {
-    bottomPaddle.x = canvas.width - paddleWidth;
+    if (bottomPaddle.x < 0) bottomPaddle.x = 0;
+    if (bottomPaddle.x + paddleWidth > canvas.width) {
+      bottomPaddle.x = canvas.width - paddleWidth;
+    }
   }
 
   if (waitingForPlayer) {
@@ -286,10 +409,12 @@ function update() {
     return;
   }
 
+  if (isPaused) {
+    return;
+  }
+
   if (createdGame) {
     updatePlayerOneBall();
-  } else {
-    updatePlayerTwoBall();
   }
 }
 
@@ -303,6 +428,8 @@ function draw() {
   if (waitingForPlayer) {
     drawWaitingText();
   }
+
+  drawCelebration();
 
   drawText(p1Score, 50, canvas.height / 2);
   drawText(p2Score, canvas.width - 80, canvas.height / 2);
@@ -319,4 +446,4 @@ gameLoop();
 setInterval(() => {
   syncToDatabase();
   fetchRemoteState();
-}, 50);
+}, SYNC_INTERVAL_MS);
