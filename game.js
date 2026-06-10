@@ -338,6 +338,12 @@ async function handleScore(scorer) {
 }
 
 function updatePlayerOneBall() {
+  const scorer = updateBallPhysics();
+  if (scorer === 1) handleScore(1);
+  if (scorer === 2) handleScore(2);
+}
+
+function updateBallPhysics() {
   ball.x += ball.dx;
   ball.y += ball.dy;
 
@@ -368,41 +374,14 @@ function updatePlayerOneBall() {
   }
 
   if (ball.y <= 0) {
-    handleScore(1);
-    return;
+    return 1;
   }
 
   if (ball.y >= canvas.height) {
-    handleScore(2);
-  }
-}
-
-function updatePlayerTwoBall() {
-  ball.x -= ball.dx;
-  ball.y -= ball.dy;
-
-  if (ball.x <= ball.radius || ball.x >= canvas.width - ball.radius) {
-    ball.x = Math.max(
-      ball.radius,
-      Math.min(canvas.width - ball.radius, ball.x)
-    );
+    return 2;
   }
 
-  if (
-    ball.y + ball.radius >= bottomPaddle.y &&
-    ball.x >= bottomPaddle.x &&
-    ball.x <= bottomPaddle.x + paddleWidth
-  ) {
-    ball.y = bottomPaddle.y - ball.radius;
-  }
-
-  if (
-    ball.y - ball.radius <= topPaddle.y + paddleHeight &&
-    ball.x >= topPaddle.x &&
-    ball.x <= topPaddle.x + paddleWidth
-  ) {
-    ball.y = topPaddle.y + paddleHeight + ball.radius;
-  }
+  return null;
 }
 
 function clampPaddle(paddle) {
@@ -440,7 +419,7 @@ function update() {
   if (createdGame) {
     updatePlayerOneBall();
   } else {
-    updatePlayerTwoBall();
+    updateBallPhysics();
   }
 }
 
