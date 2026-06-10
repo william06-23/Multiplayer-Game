@@ -35,6 +35,7 @@ let lastKnownP1Score = 0;
 let lastKnownP2Score = 0;
 let remoteP1Dx = 0;
 let remoteP2Dx = 0;
+let resumeTimer = null;
 
 function updateRoomIdDisplay() {
   if (roomIdValue) {
@@ -86,20 +87,21 @@ function handleRemoteScoreChange(prevP1, prevP2) {
 
   if (!p1Scored && !p2Scored) return;
 
+  // Guard: don't re-trigger celebration if already paused from a previous score
+  if (isPaused) return;
+
   isPaused = true;
   startCelebration(p2Scored);
   resetBallToCenter();
-}
 
-function handleRemoteResume() {
-  if (createdGame || waitingForPlayer || !isPaused) return;
-
-  if (ball.dx !== 0 || ball.dy !== 0) {
-    ball.x = INITIAL_BALL_X;
-    ball.y = INITIAL_BALL_Y;
-    isPaused = false;
+  // Player 2 auto-resumes after the same pause Player 1 uses
+  clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(() => {
+    resetBallForPlay();
     celebration = null;
-  }
+    isPaused = false;
+    resumeTimer = null;
+  }, SCORE_PAUSE_MS);
 }
 
 function applyRemoteState(data) {
@@ -131,9 +133,6 @@ function applyRemoteState(data) {
     remoteP1Dx = data.p1_dx;
   }
 
-  if (data.ball_dx != null) ball.dx = data.ball_dx;
-  if (data.ball_dy != null) ball.dy = data.ball_dy;
-
   const prevP1 = p1Score;
   const prevP2 = p2Score;
 
@@ -142,7 +141,6 @@ function applyRemoteState(data) {
 
   updateScoreDisplay();
   handleRemoteScoreChange(prevP1, prevP2);
-  handleRemoteResume();
 
   lastKnownP1Score = p1Score;
   lastKnownP2Score = p2Score;
