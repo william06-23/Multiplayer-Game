@@ -20,8 +20,9 @@ export function getNewGameRow() {
   return {
     p1_x: INITIAL_P1_X,
     ball_x: INITIAL_BALL_X,
-    ball_dx: INITIAL_BALL_DX,
-    ball_dy: INITIAL_BALL_DY,
+    ball_y: INITIAL_BALL_Y,
+    ball_dx: 0,
+    ball_dy: 0,
     p1_score: 0,
     updated_at: new Date().toISOString(),
   };
@@ -31,8 +32,29 @@ export function getPlayerTwoRow() {
   return {
     p2_x: INITIAL_P2_X,
     p2_score: 0,
+    ball_dx: INITIAL_BALL_DX,
+    ball_dy: INITIAL_BALL_DY,
     updated_at: new Date().toISOString(),
   };
+}
+
+export async function fetchGameState(gameId) {
+  const { data, error } = await supabase
+    .from("MyNewGame")
+    .select("p1_x, p2_x, ball_x, ball_y, ball_dx, ball_dy, p1_score, p2_score")
+    .eq("id", gameId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function canAccessDatabase() {
+  const { error } = await supabase.from("MyNewGame").select("id").limit(1);
+  return !error;
 }
 
 export async function createNewGame() {

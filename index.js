@@ -1,4 +1,4 @@
-import { createNewGame, joinGame } from "./supabase.js";
+import { canAccessDatabase, joinGame } from "./supabase.js";
 
 const newGameBtn = document.getElementById("newGameBtn");
 const joinGameBtn = document.getElementById("joinGameBtn");
@@ -51,15 +51,19 @@ function clearJoinError() {
 newGameBtn.addEventListener("click", async () => {
   clearNewGameError();
   newGameBtn.disabled = true;
-  newGameBtn.textContent = "Creating...";
 
   try {
-    const gameId = await createNewGame();
-    goToGame(gameId, "1");
+    const accessible = await canAccessDatabase();
+    if (!accessible) {
+      showNewGameError("Database cannot be accessed.");
+      newGameBtn.disabled = false;
+      return;
+    }
+
+    window.location.href = new URL("game.html?player=1", window.location.href).toString();
   } catch {
+    showNewGameError("Database cannot be accessed.");
     newGameBtn.disabled = false;
-    newGameBtn.textContent = "New Game";
-    showNewGameError("Failed to create game. Please try again.");
   }
 });
 
