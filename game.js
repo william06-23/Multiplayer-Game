@@ -117,12 +117,11 @@ function applyRemoteState(data) {
       ball.dy = 0;
     } else if (
       !isPaused &&
-      data.ball_dx != null &&
       ball.dx === 0 &&
       ball.dy === 0
     ) {
-      ball.dx = data.ball_dx;
-      ball.dy = data.ball_dy;
+      ball.dx = INITIAL_BALL_DX;
+      ball.dy = INITIAL_BALL_DY;
     }
 
     return;
@@ -158,8 +157,6 @@ function applyInitialState(data) {
     waitingForPlayer = false;
   }
 
-  if (data.ball_dx != null) ball.dx = data.ball_dx;
-  if (data.ball_dy != null) ball.dy = data.ball_dy;
   if (data.p1_score != null) p1Score = data.p1_score;
   if (data.p2_score != null) p2Score = data.p2_score;
 
@@ -194,8 +191,6 @@ async function syncToDatabase() {
     };
 
     if (!waitingForPlayer) {
-      update.ball_dx = ball.dx;
-      update.ball_dy = ball.dy;
       update.p1_score = p1Score;
       update.p2_score = p2Score;
     }
@@ -296,7 +291,7 @@ function resetBallForPlay() {
   ball.x = INITIAL_BALL_X;
   ball.y = INITIAL_BALL_Y;
   ball.dx = INITIAL_BALL_DX;
-  ball.dy = INITIAL_BALL_DY * (Math.random() > 0.5 ? 1 : -1);
+  ball.dy = INITIAL_BALL_DY * ((p1Score + p2Score) % 2 === 0 ? 1 : -1);
 }
 
 async function handleScore(scorer) {

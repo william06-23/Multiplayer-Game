@@ -19,8 +19,6 @@ export const INITIAL_BALL_DY = 4;
 export function getNewGameRow() {
   return {
     p1_dx: 0,
-    ball_dx: 0,
-    ball_dy: 0,
     p1_score: 0,
     p1_name: null,
     p2_name: null,
@@ -33,8 +31,6 @@ export function getPlayerTwoRow() {
   return {
     p2_dx: 0,
     p2_score: 0,
-    ball_dx: INITIAL_BALL_DX,
-    ball_dy: INITIAL_BALL_DY,
     status: "join",
     updated_at: new Date().toISOString(),
   };
@@ -43,7 +39,7 @@ export function getPlayerTwoRow() {
 export async function fetchGameState(gameId) {
   const { data, error } = await supabase
     .from("MyNewGame")
-    .select("p1_dx, p2_dx, ball_dx, ball_dy, p1_score, p2_score, status")
+    .select("p1_dx, p2_dx, p1_score, p2_score, status")
     .eq("id", gameId)
     .single();
 

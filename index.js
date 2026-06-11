@@ -65,8 +65,13 @@ newGameBtn.addEventListener("click", async () => {
       `game.html?player=1&id=${gameId}`,
       window.location.href
     ).toString();
-  } catch {
-    showNewGameError("Database cannot be accessed.");
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Database cannot be accessed.";
+    showNewGameError(message);
+    console.error("createNewGame failed:", error);
     newGameBtn.disabled = false;
   }
 });
