@@ -1,4 +1,4 @@
-import { canAccessDatabase, joinGame } from "./supabase.js";
+import { canAccessDatabase, joinGame, createNewGame } from "./supabase.js";
 
 const newGameBtn = document.getElementById("newGameBtn");
 const joinGameBtn = document.getElementById("joinGameBtn");
@@ -60,7 +60,11 @@ newGameBtn.addEventListener("click", async () => {
       return;
     }
 
-    window.location.href = new URL("game.html?player=1", window.location.href).toString();
+    const gameId = await createNewGame();
+    window.location.href = new URL(
+      `game.html?player=1&id=${gameId}`,
+      window.location.href
+    ).toString();
   } catch {
     showNewGameError("Database cannot be accessed.");
     newGameBtn.disabled = false;

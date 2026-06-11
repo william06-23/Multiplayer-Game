@@ -22,6 +22,9 @@ export function getNewGameRow() {
     ball_dx: 0,
     ball_dy: 0,
     p1_score: 0,
+    p1_name: null,
+    p2_name: null,
+    status: "new",
     updated_at: new Date().toISOString(),
   };
 }
@@ -32,6 +35,7 @@ export function getPlayerTwoRow() {
     p2_score: 0,
     ball_dx: INITIAL_BALL_DX,
     ball_dy: INITIAL_BALL_DY,
+    status: "join",
     updated_at: new Date().toISOString(),
   };
 }
@@ -39,7 +43,7 @@ export function getPlayerTwoRow() {
 export async function fetchGameState(gameId) {
   const { data, error } = await supabase
     .from("MyNewGame")
-    .select("p1_dx, p2_dx, ball_dx, ball_dy, p1_score, p2_score")
+    .select("p1_dx, p2_dx, ball_dx, ball_dy, p1_score, p2_score, status")
     .eq("id", gameId)
     .single();
 
@@ -72,7 +76,7 @@ export async function createNewGame() {
 export async function joinGame(gameId) {
   const { data: game, error: fetchError } = await supabase
     .from("MyNewGame")
-    .select("id, p2_dx, p2_score")
+    .select("id, status")
     .eq("id", gameId)
     .maybeSingle();
 
@@ -84,16 +88,20 @@ export async function joinGame(gameId) {
     throw new Error("Game not found.");
   }
 
-  if (game.p2_dx != null || game.p2_score != null) {
-    throw new Error("This game is already full.");
+  if (game.status === "join") {
+    throw new Error("Room Full");
   }
 
+  if (game.status === "done") {
+    throw new Error("Room Expired");
+  }
+
+  // status is "new" — try to join
   const { data: updated, error: updateError } = await supabase
     .from("MyNewGame")
     .update(getPlayerTwoRow())
     .eq("id", gameId)
-    .is("p2_dx", null)
-    .is("p2_score", null)
+    .eq("status", "new")
     .select("id")
     .maybeSingle();
 
@@ -102,7 +110,7 @@ export async function joinGame(gameId) {
   }
 
   if (!updated) {
-    throw new Error("This game is already full.");
+    throw new Error("Room Full");
   }
 
   return updated.id;

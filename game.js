@@ -9,7 +9,6 @@ const SCORE_PAUSE_MS = 2000;
 
 import {
   supabase,
-  createNewGame,
   fetchGameState,
   INITIAL_BALL_X,
   INITIAL_BALL_Y,
@@ -109,7 +108,7 @@ function applyRemoteState(data) {
     if (data.p2_dx != null) {
       remoteP2Dx = data.p2_dx;
     }
-    waitingForPlayer = data.p2_dx == null;
+    waitingForPlayer = data.status === "new";
 
     if (waitingForPlayer) {
       ball.x = INITIAL_BALL_X;
@@ -148,7 +147,7 @@ function applyRemoteState(data) {
 
 function applyInitialState(data) {
   if (createdGame) {
-    waitingForPlayer = data.p2_dx == null;
+    waitingForPlayer = data.status === "new";
     if (data.p2_dx != null) {
       remoteP2Dx = data.p2_dx;
     }
@@ -244,14 +243,6 @@ function subscribeToGame() {
 }
 
 async function initGame() {
-  if (createdGame && !gameId) {
-    gameId = await createNewGame();
-    const url = new URL(window.location.href);
-    url.searchParams.set("id", gameId);
-    history.replaceState(null, "", url);
-    updateRoomIdDisplay();
-  }
-
   if (gameId) {
     const data = await fetchGameState(gameId);
     applyInitialState(data);
